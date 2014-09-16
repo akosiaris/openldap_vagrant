@@ -4,6 +4,7 @@ class openldap {
 
     package { [
         'slapd',
+        'ldap-utils',
         'python-ldap',
         ]:
         ensure => installed,
@@ -41,11 +42,36 @@ class openldap {
         content => template('openldap/default.erb'),
     }
 
+    file { '/etc/ldap/schema/samba.schema' :
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0444',
+        source  => 'puppet:///modules/openldap/samba.schema',
+    }
+
+    file { '/etc/ldap/schema/rfc2307bis.schema' :
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0444',
+        source  => 'puppet:///modules/openldap/rfc2307bis.schema',
+    }
+    # We do this cause we want to rely on using slapd.conf for now
+    exec { 'rm_slapd.d':
+        onlyif  => '/usr/bin/test -d /etc/ldap/slapd.d',
+        command => '/bin/rm -rf /etc/ldap/slapd.d',
+    }
+
     # Relationships
     Package['slapd'] -> File['/etc/ldap/slapd.conf']
     Package['slapd'] -> File['/etc/default/slapd']
     Package['slapd'] -> File['/var/lib/ldap/corp/']
-    File['/etc/ldap/slapd.conf'] ~> Service['slapd']
-    File['/etc/default/slapd'] ~> Service['slapd']
+    Package['slapd'] -> Exec['rm_slapd.d']
+    Exec['rm_slapd.d'] -> Service['slapd']
+    File['/etc/ldap/slapd.conf'] ~> Service['slapd'] # We also notify
+    File['/etc/default/slapd'] ~> Service['slapd'] # We also notify
     File['/var/lib/ldap/corp/'] -> Service['slapd']
+    File['/etc/ldap/schema/rfc2307bis.schema'] -> Service['slapd']
+    File['/etc/ldap/schema/samba.schema'] -> Service['slapd']
 }

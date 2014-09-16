@@ -4,8 +4,10 @@
 # Schema and objectClass definitions
 include         /etc/ldap/schema/core.schema
 include         /etc/ldap/schema/cosine.schema
-include         /etc/ldap/schema/nis.schema
+include         /etc/ldap/schema/rfc2307bis.schema
 include         /etc/ldap/schema/inetorgperson.schema
+include         /etc/ldap/schema/dyngroup.schema
+include         /etc/ldap/schema/samba.schema
 
 # Where the pid file is put. The init.d script
 # will not stop the server if you change this.
@@ -16,7 +18,7 @@ argsfile        /var/run/slapd/slapd.args
 
 # Read slapd.conf(5) for possible values
 loglevel        sync stats config
-#TODO template this 
+#TODO template this
 ServerID        1
 
 # Where the dynamically loaded modules are stored
@@ -28,7 +30,7 @@ moduleload  syncprov
 moduleload  auditlog
 
 # The maximum number of entries that is returned for a search operation
-sizelimit 500 
+sizelimit 500
 
 # The tool-threads parameter sets the actual amount of cpu's that is used
 # for indexing.
