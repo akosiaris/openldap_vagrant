@@ -72,16 +72,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   #   cf.policy_server_address = "10.0.2.15"
   # end
 
-  # Enable provisioning with Puppet stand alone.  Puppet manifests
-  # are contained in a directory path relative to this Vagrantfile.
-  # You will need to create the manifests directory and a manifest in
-  # the file default.pp in the manifests_path directory.
-  #
-  # config.vm.provision "puppet" do |puppet|
-  #   puppet.manifests_path = "manifests"
-  #   puppet.manifest_file  = "site.pp"
-  # end
-
+  config.vm.provision "puppet" do |puppet|
+    puppet.manifests_path = "puppet/manifests"
+    puppet.module_path = "puppet/modules"
+    puppet.manifest_file  = "site.pp"
+    puppet.options = ["--templatedir", "/vagrant/puppet/templates"]
+  end
   # Enable provisioning with chef solo, specifying a cookbooks path, roles
   # path, and data_bags path (all relative to this Vagrantfile), and adding
   # some recipes and/or roles.
