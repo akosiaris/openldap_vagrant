@@ -18,8 +18,7 @@ argsfile        /var/run/slapd/slapd.args
 
 # Read slapd.conf(5) for possible values
 loglevel        sync stats config
-#TODO template this
-ServerID        1
+ServerID        <%= @server_id %>
 
 # Where the dynamically loaded modules are stored
 modulepath  /usr/lib/ldap
@@ -40,47 +39,45 @@ tool-threads 1
 ## Databases
 
 database        monitor
-rootdn          "cn=Manager,dc=corp,dc=wikimedia,dc=org"
+rootdn          "cn=admin,<%= @suffix %>"
 
 access to dn="cn=monitor"
-        by dn="cn=admin,dc=corp,dc=wikimedia,dc=org" write
+	by dn="cn=admin,<%= @suffix %>" write
         by self write
         by * none
 
 database            hdb
-suffix              "dc=corp,dc=wikimedia,dc=org"
-directory           "/var/lib/ldap/corp"
-rootdn              "cn=Manager,dc=corp,dc=wikimedia,dc=org"
+suffix              <%= @suffix %>
+directory           <%= @datadir %>
+rootdn              "cn=admin,<%= @suffix %>"
 # rootpw "..."
 
 overlay auditlog
 auditlog /var/lib/ldap/slapd-audit.log
 
 ### Replication
-# TODO: Simple stanzas for now, untested yet
 overlay syncprov
 syncprov-checkpoint 100 5
 syncprov-sessionlog 100
 syncprov-reloadhint TRUE
 
-#access to *
-#        by dn="cn=admin,dc=corp,dc=wikimedia,dc=org" write
-#        by self write
-#        by * read
+access to *
+	by dn="cn=admin,<%= @suffix %>" write
+	by self write
+	by * read
 
 # Replication user
-access  to dn.subtree="dc=corp,dc=wikimedia,dc=org"
-        by dn.base="uid=repluser,dc=corp,dc=wikimedia,dc=org" read
+access  to dn.subtree="<%= @suffix %>"
+	by dn.base="uid=repluser,<%= @suffix %>" read
         by * break
 
 # And at the same time a replica
-# TODO simple stanza for now, untested
-#TODO fix somehost template it
-syncrepl rid=2
-        provider=ldap://somehost.corp.wikimedia.org:389
-        searchbase="dc=corp,dc=wikimedia,dc=org"
+<%- if @master -%>
+syncrepl rid=1
+	provider=ldap://<%= @master %>:389
+	searchbase="<%= @suffix %>"
         type=refreshOnly
-        interval=00:00:10:00
+        interval=00:00:01:00
         filter="(objectClass=*)"
         scope=sub
         schemachecking=on
@@ -88,9 +85,9 @@ syncrepl rid=2
         starttls=critical
         tls_reqcert=demand
         tls_cacert=/etc/ssl/certs/ca-certificates.crt
-        binddn="uid=repluser,dc=corp,dc=wikimedia,dc=org"
-        credentials="none"
-#TODO: template it via a private::openldap class
+	binddn="uid=repluser,<%= @suffix %>"
+	credentials="<%= @sync_pass %>"
+<%- end -%>
 
 dbconfig set_cachesize 0 2097152 0
 dbconfig set_lk_max_objects 1500
@@ -126,7 +123,7 @@ checkpoint      512 30
 # admin entry below
 # These access lines apply to database #1 only
 access to attrs=userPassword,shadowLastChange
-        by dn="cn=admin,dc=corp,dc=wikimedia,dc=org" write
+	by dn="cn=admin,<%= @suffix %>" write
         by anonymous auth
         by self write
         by * none
@@ -138,13 +135,13 @@ access to attrs=userPassword,shadowLastChange
 # Note that this is covered by the 'access to *'
 # ACL below too but if you change that as people
 # are wont to do you'll still need this if you
-# want SASL (and possible other things) to work 
+# want SASL (and possible other things) to work
 # happily.
 access to dn.base="" by * read
 
 # The admin dn has full write access, everyone else
 # can read everything.
 access to *
-        by dn="cn=admin,dc=corp,dc=wikimedia,dc=org" write
+	by dn="cn=admin,<%= suffix %>" write
         by self write
         by * read

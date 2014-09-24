@@ -1,6 +1,12 @@
 #
 
-class openldap {
+class openldap(
+    $server_id,
+    $suffix,
+    $datadir,
+    $master=undef,
+    $sync_pass=undef,
+) {
 
     package { [
         'slapd',
@@ -72,6 +78,8 @@ class openldap {
     File['/etc/ldap/slapd.conf'] ~> Service['slapd'] # We also notify
     File['/etc/default/slapd'] ~> Service['slapd'] # We also notify
     File['/var/lib/ldap/corp/'] -> Service['slapd']
+    Package['slapd'] -> File['/etc/ldap/schema/rfc2307bis.schema']
+    Package['slapd'] -> File['/etc/ldap/schema/samba.schema']
     File['/etc/ldap/schema/rfc2307bis.schema'] -> Service['slapd']
     File['/etc/ldap/schema/samba.schema'] -> Service['slapd']
 }
