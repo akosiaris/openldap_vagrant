@@ -6,6 +6,10 @@ class openldap(
     $datadir,
     $master=undef,
     $sync_pass=undef,
+    $mirrormode=false,
+    $certificate=undef,
+    $key=undef,
+    $ca=undef,
 ) {
 
     package { [
@@ -69,6 +73,15 @@ class openldap(
         command => '/bin/rm -rf /etc/ldap/slapd.d',
     }
 
+    # Mostly here to avoid unencrypted user initiated connections
+    file { '/etc/ldap/ldap.conf':
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0444',
+        content => template('openldap/ldap.conf.erb'),
+    }
+
     # Relationships
     Package['slapd'] -> File['/etc/ldap/slapd.conf']
     Package['slapd'] -> File['/etc/default/slapd']
@@ -82,4 +95,5 @@ class openldap(
     Package['slapd'] -> File['/etc/ldap/schema/samba.schema']
     File['/etc/ldap/schema/rfc2307bis.schema'] -> Service['slapd']
     File['/etc/ldap/schema/samba.schema'] -> Service['slapd']
+    File['/etc/ldap/ldap.conf'] -> Service['slapd']
 }

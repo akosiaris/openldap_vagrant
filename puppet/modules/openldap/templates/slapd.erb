@@ -17,7 +17,7 @@ pidfile         /var/run/slapd/slapd.pid
 argsfile        /var/run/slapd/slapd.args
 
 # Read slapd.conf(5) for possible values
-loglevel        sync stats config
+loglevel        sync stats
 ServerID        <%= @server_id %>
 
 # Where the dynamically loaded modules are stored
@@ -29,7 +29,7 @@ moduleload  syncprov
 moduleload  auditlog
 
 # The maximum number of entries that is returned for a search operation
-sizelimit 500
+sizelimit 2048
 
 # The tool-threads parameter sets the actual amount of cpu's that is used
 # for indexing.
@@ -37,10 +37,11 @@ tool-threads 1
 #######################################################################
 ## SSL config
 
-TLSCACertificateFile /etc/ssl/certs/ca-certificates.crt
-#TODO: Fix this
-TLSCertificateFile /etc/ssl/certs/<%= @hostname %>.example.org.crt
-TLSCertificateKeyFile /etc/ssl/private/<%= @hostname %>.example.org.key
+<%- if @ca and @key and @certificate -%>
+TLSCACertificateFile <%= @ca %>
+TLSCertificateFile <%= @certificate %>
+TLSCertificateKeyFile <%= @key %>
+<%- end -%>
 
 ## Databases
 
@@ -74,7 +75,7 @@ access to *
 
 # Replication user
 access  to dn.subtree="<%= @suffix %>"
-	by dn.base="uid=repluser,<%= @suffix %>" read
+	by dn.base="cn=repluser,<%= @suffix %>" read
         by * break
 
 # And at the same time a replica
@@ -91,8 +92,10 @@ syncrepl rid=1
         starttls=critical
         tls_reqcert=demand
         tls_cacert=/etc/ssl/certs/ca-certificates.crt
-	binddn="uid=repluser,<%= @suffix %>"
+	binddn="cn=repluser,<%= @suffix %>"
 	credentials="<%= @sync_pass %>"
+<%- end -%>
+<%- if @master and @mirrormode -%>
 mirrormode on
 <%- end -%>
 

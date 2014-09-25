@@ -16,9 +16,9 @@ host { 's1.example.org':
 }
 
 case $::hostname {
-    'm1': { $server_id = 1 $master = 'm2.example.org' }
-    'm2': { $server_id = 2 $master = 'm1.example.org' }
-    's1': { $server_id = 1 $master = 'm1.example.org' }
+    'm1': { $server_id = 1 $master = 'm2.example.org' $mirrormode=true }
+    'm2': { $server_id = 2 $master = 'm1.example.org' $mirrormode=true }
+    's1': { $server_id = 1 $master = 'm1.example.org' $mirrormode=false }
 }
 
 exec { 'copy_ca':
@@ -50,6 +50,9 @@ class { '::openldap':
     datadir => '/var/lib/ldap/corp',
     master => $master,
     sync_pass => '123',
+    certificate => '/etc/ssl/certs/ca-certificates.crt',
+    key => "/etc/ssl/certs/${::hostname}.example.org.crt",
+    ca => "/etc/ssl/private/${::hostname}.example.org.key",
 }
 
 Exec['copy_ca'] -> Exec['update_cas']
