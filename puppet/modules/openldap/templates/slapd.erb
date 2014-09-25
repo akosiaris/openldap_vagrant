@@ -35,6 +35,12 @@ sizelimit 500
 # for indexing.
 tool-threads 1
 #######################################################################
+## SSL config
+
+TLSCACertificateFile /etc/ssl/certs/ca-certificates.crt
+#TODO: Fix this
+TLSCertificateFile /etc/ssl/certs/<%= @hostname %>.example.org.crt
+TLSCertificateKeyFile /etc/ssl/private/<%= @hostname %>.example.org.key
 
 ## Databases
 
