@@ -50,9 +50,9 @@ class { '::openldap':
     datadir => '/var/lib/ldap/corp',
     master => $master,
     sync_pass => '123',
-    certificate => '/etc/ssl/certs/ca-certificates.crt',
-    key => "/etc/ssl/certs/${::hostname}.example.org.crt",
-    ca => "/etc/ssl/private/${::hostname}.example.org.key",
+    ca => '/etc/ssl/certs/ca-certificates.crt',
+    certificate => "/etc/ssl/certs/${::hostname}.example.org.crt",
+    key => "/etc/ssl/private/${::hostname}.example.org.key",
 }
 
 Exec['copy_ca'] -> Exec['update_cas']
