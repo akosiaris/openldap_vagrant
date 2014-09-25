@@ -87,6 +87,7 @@ syncrepl rid=1
         tls_cacert=/etc/ssl/certs/ca-certificates.crt
 	binddn="uid=repluser,<%= @suffix %>"
 	credentials="<%= @sync_pass %>"
+mirrormode on
 <%- end -%>
 
 dbconfig set_cachesize 0 2097152 0
@@ -142,6 +143,6 @@ access to dn.base="" by * read
 # The admin dn has full write access, everyone else
 # can read everything.
 access to *
-	by dn="cn=admin,<%= suffix %>" write
+	by dn="cn=admin,<%= @suffix %>" write
         by self write
         by * read

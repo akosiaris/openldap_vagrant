@@ -25,7 +25,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
   # config.vm.network "private_network", ip: "192.168.33.10"
-  config.vm.network "private_network", type: "dhcp"
 
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
@@ -80,10 +79,16 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.define "m1" do |m1|
+    config.vm.hostname = "m1"
+    config.vm.network "private_network", ip: "192.168.10.2"
   end
   config.vm.define "m2" do |m2|
+    config.vm.hostname = "m2"
+    config.vm.network "private_network", ip: "192.168.10.3"
   end
   config.vm.define "s1" do |s1|
+    config.vm.hostname = "s1"
+    config.vm.network "private_network", ip: "192.168.10.4"
   end
   # Enable provisioning with chef solo, specifying a cookbooks path, roles
   # path, and data_bags path (all relative to this Vagrantfile), and adding
