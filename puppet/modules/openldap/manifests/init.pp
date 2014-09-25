@@ -1,5 +1,41 @@
+# Class: openldap
 #
-
+# This class installs slapd and configures it with a single suffix hdb database
+#
+# Parameters:
+#    $server_id
+#       This openLDAP server's ID. Mostly used in replication environments, but
+#       generally good to have. An integer
+#    $suffix
+#       The suffix, e.g. "dc=example,dc=com"
+#    $datadir
+#       The datadir this suffix will be installed, e.g. "/var/lib/ldap"
+#    $master
+#       Optional. In a replication environment, the TLS-enabled master's fqdn
+#    $sync_pass
+#       Optional. In a replication environment, the password of the replication
+#       user
+#    $mirrormode
+#       Optional, false by default. Whether the server will participate in a
+#       dualmaster environment
+#    $certificate
+#       Optional. TLS enable the server. The path to the certificate file
+#    $key
+#       Optional. TLS enable the server. The path to the certificate file
+#    $ca
+#       Optional. TLS enable the server. The path to the CA certificate file
+#
+# Actions:
+#       Install/configure slapd
+#
+# Requires:
+#
+# Sample Usage:
+#       class { '::openldap':
+#           server_id = 1,
+#           suffix = 'dc=example,dc=org',
+#           datadir = '/var/lib/ldap',
+#       }
 class openldap(
     $server_id,
     $suffix,
