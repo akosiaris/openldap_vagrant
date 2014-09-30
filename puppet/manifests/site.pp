@@ -49,6 +49,7 @@ class { '::openldap':
     suffix => 'dc=corp,dc=wikimedia,dc=org',
     datadir => '/var/lib/ldap/corp',
     master => $master,
+    mirrormode => $mirrormode,
     sync_pass => '123',
     ca => '/etc/ssl/certs/ca-certificates.crt',
     certificate => "/etc/ssl/certs/${::hostname}.example.org.crt",
