@@ -14,7 +14,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # config.vm.box_check_update = false
 
   config.vm.provision "shell" do |s|
-      s.inline = "apt-get install -y puppet"
+      s.inline = "apt-get update && apt-get install -y puppet"
   end
 
   config.vm.provision "puppet" do |puppet|
