@@ -1,4 +1,10 @@
-# Features to permit
+#####################################################################
+### THIS FILE IS MANAGED BY PUPPET
+### puppet:///modules/openldap/templates/slapd.erb
+#####################################################################
+
+
+# Only allow v3 bindings
 #allow bind_v2
 
 # Schema and objectClass definitions
@@ -8,6 +14,7 @@ include         /etc/ldap/schema/rfc2307bis.schema
 include         /etc/ldap/schema/inetorgperson.schema
 include         /etc/ldap/schema/dyngroup.schema
 include         /etc/ldap/schema/samba.schema
+include         /etc/ldap/schema/ppolicy.schema
 
 # Where the pid file is put. The init.d script
 # will not stop the server if you change this.
@@ -18,7 +25,6 @@ argsfile        /var/run/slapd/slapd.args
 
 # Read slapd.conf(5) for possible values
 loglevel        sync stats
-ServerID        <%= @server_id %>
 
 # Where the dynamically loaded modules are stored
 modulepath  /usr/lib/ldap
@@ -27,15 +33,16 @@ moduleload  back_monitor
 moduleload  memberof
 moduleload  syncprov
 moduleload  auditlog
+moduleload  ppolicy
 
-# The maximum number of entries that is returned for a search operation
+# Maximum number of entries that is returned for a search operation
 sizelimit 2048
 
-# The tool-threads parameter sets the actual amount of cpu's that is used
-# for indexing.
+# Limit amount of cpu's that is used for indexing.
 tool-threads 1
+
 #######################################################################
-## SSL config
+## TLS/SSL config
 
 <%- if @ca and @key and @certificate -%>
 TLSCACertificateFile <%= @ca %>
@@ -43,6 +50,7 @@ TLSCertificateFile <%= @certificate %>
 TLSCertificateKeyFile <%= @key %>
 <%- end -%>
 
+#######################################################################
 ## Databases
 
 database        monitor
@@ -62,13 +70,27 @@ rootdn              "cn=admin,<%= @suffix %>"
 overlay auditlog
 auditlog /var/lib/ldap/slapd-audit.log
 
-### Replication
+#######################################################################
+## Password policy (default is to store passwords in plaintext)
+# This policy will store passwords an unsalted SHA1 hashes.
+# This is a requirement for Google Apps Directory Sync
+
+overlay ppolicy
+ppolicy_hash_cleartext
+password-hash {SHA}
+
+#######################################################################
+## Replication
+
+# Unique ID
+ServerID <%= @server_id %>
+
 overlay syncprov
 syncprov-checkpoint 100 5
 syncprov-sessionlog 100
 syncprov-reloadhint TRUE
 
-##### Replication ACL
+## Replication ACL
 
 # Replication user
 access  to dn.subtree="<%= @suffix %>"
@@ -93,8 +115,12 @@ syncrepl rid=1
 	credentials="<%= @sync_pass %>"
 <%- end -%>
 <%- if @master and @mirrormode -%>
+# 'Multi-Master'
 mirrormode on
 <%- end -%>
+
+#######################################################################
+## General parameters and indexes
 
 dbconfig set_cachesize 0 2097152 0
 dbconfig set_lk_max_objects 1500
@@ -133,13 +159,23 @@ index	memberUid 		eq
 lastmod         on
 checkpoint      512 30
 
-### Access lists
+#######################################################################
+## Access lists
+
+# Allow radiusagent to check sambaNTPassword for 802.1x Enterprise WPA2
+access to attrs=sambaNTPassword
+	by dn="cn=admin,<%= @suffix %>" write
+	by dn="cn=radiusagent,ou=other,<%= @suffix %>" read
+	by anonymous auth
+	by self write
+	by * none
+
 # The userPassword by default can be changed
 # by the entry owning it if they are authenticated.
 # Others should not be able to see it, except the
 # admin entry below
 # These access lines apply to database #1 only
-access to attrs=userPassword,shadowLastChange,sambaNTPassword
+access to attrs=userPassword,shadowLastChange
 	by dn="cn=admin,<%= @suffix %>" write
 	by anonymous auth
 	by self write
