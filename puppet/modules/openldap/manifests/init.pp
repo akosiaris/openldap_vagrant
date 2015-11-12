@@ -24,6 +24,11 @@
 #       Optional. TLS enable the server. The path to the certificate file
 #    $ca
 #       Optional. TLS enable the server. The path to the CA certificate file
+#    $extra_schemas
+#       Optional. A list of schema files relative to the /etc/ldap/schema directory
+#    $extra_acls
+#       Optional. Specify an ERB template file with additional ACL access rules
+#       (in addition to the base rules)
 #
 # Actions:
 #       Install/configure slapd
@@ -46,6 +51,8 @@ class openldap(
     $certificate=undef,
     $key=undef,
     $ca=undef,
+    $extra_schemas=undef,
+    $extra_acls=undef,
 ) {
 
     require_package('slapd', 'ldap-utils', 'python-ldap')
@@ -82,21 +89,31 @@ class openldap(
         content => template('openldap/default.erb'),
     }
 
-    file { '/etc/ldap/schema/samba.schema' :
-        ensure => present,
-        owner  => 'root',
-        group  => 'root',
-        mode   => '0444',
-        source => 'puppet:///modules/openldap/samba.schema',
+    $ldap_base_schemas = ['samba.schema', 'rfc2307bis.schema']
+    openldap::ldap_schema { $ldap_base_schemas: }
+
+    if $extra_schemas {
+        openldap::ldap_schema { $extra_schemas: }
     }
 
-    file { '/etc/ldap/schema/rfc2307bis.schema' :
-        ensure => present,
-        owner  => 'root',
-        group  => 'root',
-        mode   => '0444',
-        source => 'puppet:///modules/openldap/rfc2307bis.schema',
+    if $extra_acls {
+        file { '/etc/ldap/acls.conf' :
+            ensure  => present,
+            owner   => 'root',
+            group   => 'root',
+            mode    => '0444',
+            content => template('openldap/base-acls.erb', $extra_acls),
+        }
+    } else {
+        file { '/etc/ldap/acls.conf' :
+            ensure  => present,
+            owner   => 'root',
+            group   => 'root',
+            mode    => '0444',
+            content => template('openldap/base-acls.erb'),
+        }
     }
+
     # We do this cause we want to rely on using slapd.conf for now
     exec { 'rm_slapd.d':
         onlyif  => '/usr/bin/test -d /etc/ldap/slapd.d',
@@ -113,6 +130,7 @@ class openldap(
     }
 
     # Relationships
+    File['/etc/ldap/acls.conf'] -> File['/etc/ldap/slapd.conf']
     Package['slapd'] -> File['/etc/ldap/slapd.conf']
     Package['slapd'] -> File['/etc/default/slapd']
     Package['slapd'] -> File[$datadir]
@@ -121,9 +139,5 @@ class openldap(
     File['/etc/ldap/slapd.conf'] ~> Service['slapd'] # We also notify
     File['/etc/default/slapd'] ~> Service['slapd'] # We also notify
     File[$datadir] -> Service['slapd']
-    Package['slapd'] -> File['/etc/ldap/schema/rfc2307bis.schema']
-    Package['slapd'] -> File['/etc/ldap/schema/samba.schema']
-    File['/etc/ldap/schema/rfc2307bis.schema'] -> Service['slapd']
-    File['/etc/ldap/schema/samba.schema'] -> Service['slapd']
     File['/etc/ldap/ldap.conf'] -> Service['slapd']
 }
