@@ -1,3 +1,6 @@
-V	150925113017Z		01	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=m1.example.org
-V	150925113026Z		02	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=m2.example.org
-V	150925113027Z		03	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=s1.example.org
+R	150925113017Z	160609144118Z	01	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=m1.example.org
+R	150925113026Z	160609144114Z	02	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=m2.example.org
+R	150925113027Z	160609144106Z	03	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=s1.example.org
+V	221130144132Z		04	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=m1.example.org
+V	221130144133Z		05	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=m2.example.org
+V	221130144134Z		06	unknown	/C=GR/ST=Attiki/O=SnakeOIL/OU=SnakeOIL Department/CN=s1.example.org
