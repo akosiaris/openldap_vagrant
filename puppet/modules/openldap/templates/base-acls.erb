@@ -31,9 +31,8 @@ access to attrs=userPassword,shadowLastChange
 # happily.
 access to dn.base="" by * read
 
-# The admin dn has full write access, everyone else
-# can read everything.
+# everyone can read everything else not already defined
+# in above rules and write self
 access to *
-	by dn="cn=admin,<%= @suffix %>" write
 	by self write
 	by * read

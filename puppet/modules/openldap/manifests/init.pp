@@ -5,7 +5,8 @@
 # Parameters:
 #    $server_id
 #       This openLDAP server's ID. Mostly used in replication environments, but
-#       generally good to have. An integer
+#       generally good to have. An integer. When using a multi-master setup or
+#       mirrormode, the IDs of each server must be unique.
 #    $suffix
 #       The suffix, e.g. "dc=example,dc=com"
 #    $datadir
@@ -17,7 +18,8 @@
 #       user
 #    $mirrormode
 #       Optional, false by default. Whether the server will participate in a
-#       dualmaster environment
+#       dualmaster environment. The replication user needs to be created manually,
+#       see README.md
 #    $certificate
 #       Optional. TLS enable the server. The path to the certificate file
 #    $key
@@ -29,6 +31,21 @@
 #    $extra_acls
 #       Optional. Specify an ERB template file with additional ACL access rules
 #       (in addition to the base rules)
+#    $extra_indices
+#       Optional. Specify an ERB template file with additional LDAP indices
+#       (in addition to the base indices)
+#    $size_limit
+#       Optional. Specify the maximum number of entries to return from a search
+#       operation. May be set to a number or to 'unlimited'. If unset, the default
+#       is 2048.
+#    $logging
+#       Optional. Specify the kind of logging desired. Defaults to "sync"
+#       And it is not named loglevel cause that's a puppet metaparameter
+#    $hash_passwords
+#       Optional. Specify what hashing scheme will be used by openldap to hash
+#       cleartext passwords sent to it on account creation or password change.
+#       Defauts to SHA. Valid values: SHA, SSHA, MD5, SMD5, CRYPT, SASL
+#       Do not supply this if you don't know what you are doing!!!!
 #
 # Actions:
 #       Install/configure slapd
@@ -53,6 +70,10 @@ class openldap(
     $ca=undef,
     $extra_schemas=undef,
     $extra_acls=undef,
+    $extra_indices=undef,
+    $size_limit=undef,
+    $logging='sync',
+    $hash_passwords='SHA',
 ) {
 
     require_package('slapd', 'ldap-utils', 'python-ldap')
@@ -75,9 +96,9 @@ class openldap(
 
     file { '/etc/ldap/slapd.conf' :
         ensure  => present,
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0444',
+        owner   => 'openldap',
+        group   => 'openldap',
+        mode    => '0440',
         content => template('openldap/slapd.erb'),
     }
 
@@ -102,7 +123,7 @@ class openldap(
             owner   => 'root',
             group   => 'root',
             mode    => '0444',
-            content => template('openldap/base-acls.erb', $extra_acls),
+            content => template($extra_acls, 'openldap/base-acls.erb'),
         }
     } else {
         file { '/etc/ldap/acls.conf' :
@@ -111,6 +132,24 @@ class openldap(
             group   => 'root',
             mode    => '0444',
             content => template('openldap/base-acls.erb'),
+        }
+    }
+
+    if $extra_indices {
+        file { '/etc/ldap/indices.conf' :
+            ensure  => present,
+            owner   => 'root',
+            group   => 'root',
+            mode    => '0444',
+            content => template('openldap/base-indices.erb', $extra_indices),
+        }
+    } else {
+        file { '/etc/ldap/indices.conf' :
+            ensure  => present,
+            owner   => 'root',
+            group   => 'root',
+            mode    => '0444',
+            content => template('openldap/base-indices.erb'),
         }
     }
 
@@ -131,12 +170,15 @@ class openldap(
 
     # Relationships
     File['/etc/ldap/acls.conf'] -> File['/etc/ldap/slapd.conf']
+    File['/etc/ldap/indices.conf'] -> File['/etc/ldap/slapd.conf']
     Package['slapd'] -> File['/etc/ldap/slapd.conf']
     Package['slapd'] -> File['/etc/default/slapd']
     Package['slapd'] -> File[$datadir]
     Package['slapd'] -> Exec['rm_slapd.d']
     Exec['rm_slapd.d'] -> Service['slapd']
     File['/etc/ldap/slapd.conf'] ~> Service['slapd'] # We also notify
+    File['/etc/ldap/acls.conf'] ~> Service['slapd'] # We also notify
+    File['/etc/ldap/indices.conf'] ~> Service['slapd'] # We also notify
     File['/etc/default/slapd'] ~> Service['slapd'] # We also notify
     File[$datadir] -> Service['slapd']
     File['/etc/ldap/ldap.conf'] -> Service['slapd']

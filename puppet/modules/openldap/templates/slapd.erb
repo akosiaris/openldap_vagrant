@@ -28,7 +28,7 @@ pidfile         /var/run/slapd/slapd.pid
 argsfile        /var/run/slapd/slapd.args
 
 # Read slapd.conf(5) for possible values
-loglevel        sync stats
+loglevel        <%= @logging %>
 
 # Where the dynamically loaded modules are stored
 modulepath  /usr/lib/ldap
@@ -38,9 +38,19 @@ moduleload  memberof
 moduleload  syncprov
 moduleload  auditlog
 moduleload  ppolicy
+moduleload  deref
+moduleload  unique
 
 # Maximum number of entries that is returned for a search operation
+<% if @size_limit then %>
+sizelimit <%= @size_limit %>
+<% else %>
 sizelimit 2048
+<% end %>
+
+# 10 minute idle timeout for ill-behaved clients
+idletimeout 600
+writetimeout 30
 
 # Limit amount of cpu's that is used for indexing.
 tool-threads 1
@@ -60,8 +70,9 @@ TLSCertificateKeyFile <%= @key %>
 database        monitor
 rootdn          "cn=admin,<%= @suffix %>"
 
-access to dn="cn=monitor"
+access to dn.subtree="cn=monitor"
 	by dn="cn=admin,<%= @suffix %>" write
+	by dn="cn=monitor,<%= @suffix %>" read
 	by self write
 	by * none
 
@@ -74,6 +85,9 @@ rootdn              "cn=admin,<%= @suffix %>"
 overlay auditlog
 auditlog /var/lib/ldap/slapd-audit.log
 
+overlay deref
+overlay memberof
+
 #######################################################################
 ## Password policy (default is to store passwords in plaintext)
 # This policy will store passwords an unsalted SHA1 hashes.
@@ -81,7 +95,7 @@ auditlog /var/lib/ldap/slapd-audit.log
 
 overlay ppolicy
 ppolicy_hash_cleartext
-password-hash {SHA}
+password-hash {<%= @hash_passwords %>}
 
 #######################################################################
 ## Replication
@@ -94,6 +108,10 @@ syncprov-checkpoint 100 5
 syncprov-sessionlog 100
 syncprov-reloadhint TRUE
 
+overlay unique
+unique_uri ldap:///?uidNumber?sub?(objectClass=posixaccount)
+unique_uri ldap:///?gidNumber?sub?(objectClass=posixgroup)
+
 ## Replication ACL
 
 # Replication user
@@ -101,12 +119,15 @@ access  to dn.subtree="<%= @suffix %>"
 	by dn.base="cn=repluser,<%= @suffix %>" read
 	by * break
 
+limits dn.exact="cn=repluser,<%= @suffix %>" time=unlimited size=unlimited
+
 <%- if @master -%>
 # And at the same time a replica
 syncrepl rid=1
 	provider=ldap://<%= @master %>:389
 	searchbase="<%= @suffix %>"
         type=refreshOnly
+	retry="60 10 300 +"
         interval=00:00:01:00
         filter="(objectClass=*)"
         scope=sub
@@ -132,33 +153,10 @@ dbconfig set_lk_max_locks 1500
 dbconfig set_lk_max_lockers 1500
 dbconfig set_lg_regionmax 262144
 dbconfig set_lg_bsize 2097152
+dbconfig set_flags DB_LOG_AUTOREMOVE
 
-index	default 		pres,eq
-index	objectClass 		eq
-index	entryCSN 		eq
-index	entryUUID 		eq
-index	automountkey 		pres,eq
-index	businessCategory 	pres,eq
-index   cn 			eq,sub
-index	gidNumber 		pres,eq
-index	givenName 		eq,sub
-index	initials 		pres,eq
-index	ipHostNumber 		pres,sub
-index	ipnetworkNumber 	pres,eq
-index	mail			eq,sub
-index	member			eq
-index	membernisnetgroup	pres,sub
-#NOTE: nisnetgrouptriple one had sub as well in opendj due to a slightly different schema
-index	nisnetgrouptriple	pres
-index	oncRpcNumber		pres,eq
-index	sn 			eq,sub
-index	telephoneNumber		eq,sub
-index   uid			eq
-index	uidNumber		pres,eq
-index	uniqueMember		eq
-index	x121address		pres,eq
-index	memberOf 		eq
-index	memberUid 		eq
+# LDAP indices
+include /etc/ldap/indices.conf
 
 lastmod         on
 checkpoint      512 30
