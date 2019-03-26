@@ -1,4 +1,4 @@
-# == Function: ssl_ciphersuite( string $servercode, string $encryption_type, int $hsts_days )
+# == Function: ssl_ciphersuite( string $server, string $encryption_type, boolean $hsts )
 #
 # Outputs the ssl configuration directives for use with either Nginx
 # or Apache using our selection of ciphers and SSL options.
@@ -7,34 +7,30 @@
 #
 # Takes three arguments:
 #
-# - The servercode, or which browser-version combination to
-#   support. At the moment only 'apache-2.2', 'apache-2.4' and 'nginx'
-#   are supported.
+# - The server to configure for: 'apache' or 'nginx'
 # - The compatibility mode, trades security vs compatibility.
 #   Note that due to POODLE, SSLv3 is universally disabled and none of these
 #   options are compatible with SSLv3-only clients such as IE6/XP.
 #   Current options are:
-#   - strong:     Only TLSv1.2 with PFS+AEAD ciphers.  In practice this is a
+#   - strong:     Only TLSv1.2 with FS+AEAD ciphers.  In practice this is a
 #                 very short list, and requires a very modern client.  No
 #                 tradeoff is made for compatibility.  Known to work with:
-#                 New FF/Chrome, IE11, Java8, Android 4.4+, OpenSSL 1.0.x
-#                 Definitely broken with: All Safari (OSX/iOS).
-#                 IE11 support requires either DHE support or an ECDSA key.
+#                 FF/Chrome, IE11, Safari 9, Java8, Android 4.4+, OpenSSL 1.0.x
 #   - mid:        Supports TLSv1.0 and higher, and adds several forward-secret
-#                 options which are not AEAD.  This is compatible with many
-#                 more clients than "strong".  With a DHE-capable server,
-#                 should only be incompatible with IE8/XP, ancient/un-updated
-#                 Java6, and some small corner cases like Nokia feature
-#                 phones.  With a non-DHE server, compatibility is also lost
-#                 with Android 2.x, OpenSSL 0.9.8, and more Java6 clients.
-#   - compat:     Supports most legacy clients, PFS optional but preferred.
-# - An optional argument, that if non-nil will set HSTS to max-age of
-#   N days
+#                 options which are not AEAD.  This is compatible with many more
+#                 clients than "strong".  Should only be incompatible with
+#                 unpatched IE8/XP, ancient/un-updated Java6, and some small
+#                 corner cases like Nokia feature phones.
+#   - compat:     Supports most legacy clients, FS optional but preferred.
+# - HSTS boolean - if true, will emit our standard HSTS header for canonical
+#   public domains (which is currently 1 year with preload and includeSub).
+#   Default false.
 #
-# For servers which support it (nginx, or apache-2.4 on Jessie), DHE cipher
-# variants that are appropriate for the compatibility mode selected will be
-# enabled, generally increasing forward-secrecy and compatibility, but
-# sacrificing some rare/ancient/un-updated Java6 clients.
+# In our WMF configurations, Apache only supports DHE ciphersuites securely on
+# Debian Jessie, which is necessary for "mid" to have the compatibility level
+# stated above.  When this function is used with Apache an older host (e.g.
+# Ubuntu Trusty or Precise), the "mid" and "strong" options will be downgraded
+# to "compat" with a warning.
 #
 # Whenever called, this function will output a list of strings that
 # can be safely used in your configuration file as the ssl
@@ -42,7 +38,7 @@
 #
 # == Examples
 #
-#     ssl_ciphersuite('apache-2.4', 'compat')
+#     ssl_ciphersuite('apache', 'compat', true)
 #     ssl_ciphersuite('nginx', 'strong')
 #
 # == License
@@ -67,50 +63,45 @@ require 'puppet/util/package'
 
 module Puppet::Parser::Functions
   # Basic list chunks, used to construct bigger lists
+  # Note we only support forward-secret ciphers at this point
   # General preference ordering for fullest combined list:
-  # 0) Kx:   (EC)DHE > RSA    (Forward Secrecy)
-  # 1) Mac:  AEAD > ALL       (GCM > CBC)
-  # 2) Kx:   ECDHE > DHE      (Server Perf, may help with DH>1024 compat)
-  # 3) Enc:  AES128 > AES256  (>CAMELLIA128 > CAMELLIA256)
-  # 4) Mac:  SHA-2 > SHA-1
-  # 5) Auth: ECDSA > RSA      (Server Performance)
+  # 1) Mac:  AEAD > ALL       (AES-GCM/CHAPOLY > Others)
+  # 2) Auth: ECDSA > RSA      (Perf, mostly)
+  # 3) Enc:  CHAPOLY > AESGCM (Old client perf, sec)
+  # 4) Enc:  AES256 > AES128  (sec, batch attacks?)
+  # 5) Kx:   ECDHE > DHE      (Perf, mostly)
+  #
+  # After all of that, the fullest list of reasonably-acceptable mid/compat
+  # ciphers has been filtered further to reduce pointless clutter:
+  # *) The 'mid' list has been filtered of AES256 options on the grounds that
+  # any such client can always use AES128 instead, and it's senseless to try to
+  # set a 'more bits' security policy if not using a strong cipher in general,
+  # and clients too old for strong ciphers are more likely to be impacted by
+  # AES256 performance differentials.  SHA-2 HMAC variants were filtered
+  # similarly, as all clients that would negotiate x-SHA256 also negotiate x-SHA
+  # and there's no effective security difference between the two.
   basic = {
     # Forward-Secret + AEAD
     'strong' => [
       '-ALL',
-      'ECDHE-ECDSA-AES128-GCM-SHA256',
-      'ECDHE-RSA-AES128-GCM-SHA256',
-      'DHE-RSA-AES128-GCM-SHA256',
+      'TLS13-CHACHA20-POLY1305-SHA256',
+      'TLS13-AES-256-GCM-SHA384',
+      'TLS13-AES-128-GCM-SHA256',
+      'ECDHE-ECDSA-CHACHA20-POLY1305',
       'ECDHE-ECDSA-AES256-GCM-SHA384',
+      'ECDHE-ECDSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-CHACHA20-POLY1305',
       'ECDHE-RSA-AES256-GCM-SHA384',
-      'DHE-RSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES128-GCM-SHA256',
     ],
     # Forward-Secret, but not AEAD
     'mid' => [
-      'ECDHE-ECDSA-AES128-SHA256',
-      'ECDHE-RSA-AES128-SHA256',
-      'ECDHE-ECDSA-AES128-SHA',
+      'ECDHE-ECDSA-AES128-SHA', # Various outdated IE, Safari<9, Android<4.4
       'ECDHE-RSA-AES128-SHA',
-      'ECDHE-ECDSA-AES256-SHA384',
-      'ECDHE-RSA-AES256-SHA384',
-      'ECDHE-ECDSA-AES256-SHA',
-      'ECDHE-RSA-AES256-SHA',
-      'DHE-RSA-AES128-SHA256',
-      'DHE-RSA-AES128-SHA',
-      'DHE-RSA-AES256-SHA256',
-      'DHE-RSA-AES256-SHA',
-      'DHE-RSA-CAMELLIA128-SHA',
-      'DHE-RSA-CAMELLIA256-SHA',
+      'DHE-RSA-AES128-SHA', # Android 2.x, openssl-0.9.8, etc
     ],
-    # not-forward-secret compat for ancient stuff
+    # Currently empty, but some "mid" above may move here in later commits
     'compat' => [
-      'AES128-GCM-SHA256', # AEAD, but not forward-secret
-      'AES256-GCM-SHA384', # AEAD, but not forward-secret
-      'AES128-SHA256',
-      'AES128-SHA',
-      'AES256-SHA256',
-      'AES256-SHA',
-      'DES-CBC3-SHA', # Only for IE8/XP at this point, I think
     ],
   }
 
@@ -121,107 +112,113 @@ module Puppet::Parser::Functions
     'compat'     => basic['strong'] + basic['mid'] + basic['compat'],
   }
 
+  # Our standard HSTS for all public canonical domains
+  hsts_val = "max-age=106384710; includeSubDomains; preload"
+
   newfunction(
               :ssl_ciphersuite,
               :type => :rvalue,
               :doc  => <<-END
 Outputs the ssl configuration part of the webserver config.
 Function parameters are:
- servercode - either nginx, apache-2.2 or apache-2.4
+ server - either nginx or apache
  encryption_type - strong, mid, or compat
- hsts_days  - how many days should the STS header live. If not expressed, HSTS will
-              be disabled
+ hsts - optional boolean, true emits our standard public HSTS
 
 Examples:
 
-   ssl_ciphersuite('apache-2.4', 'compat') # Compatible config for apache 2.4
-   ssl_ciphersuite('apache-2.4', 'mid') # PFS-only for apache2.4
-   ssl_ciphersuite('nginx', 'strong', '365') # PFS-only, AEAD-only, TLSv1.2-only
+   ssl_ciphersuite('apache', 'compat', true) # Compatible config for apache
+   ssl_ciphersuite('apache', 'mid', true) # FS-only for apache
+   ssl_ciphersuite('nginx', 'strong', true) # FS-only, AEAD-only, TLSv1.2-only
 END
               ) do |args|
 
+    Puppet::Parser::Functions.function(:os_version)
+    Puppet::Parser::Functions.function(:notice)
 
     if args.length < 2 || args.length > 3
       fail(ArgumentError, 'ssl_ciphersuite() requires at least 2 arguments')
     end
 
-    servercode = args.shift
-    case servercode
-    when 'apache-2.4' then
-      server = 'apache'
-      server_version = 24
-    when 'apache-2.2' then
-      server = 'apache'
-      server_version = 22
-    when 'nginx' then
-      server = 'nginx'
-      server_version = nil
-    else
-      fail(ArgumentError, "ssl_ciphersuite(): unknown server string '#{servercode}'")
+    server = args.shift
+    if server != 'apache' && server != 'nginx'
+      fail(ArgumentError, "ssl_ciphersuite(): unknown server string '#{server}'")
     end
 
     ciphersuite = args.shift
-    unless ciphersuites.has_key?(ciphersuite)
+    unless ciphersuites.key?(ciphersuite)
       fail(ArgumentError, "ssl_ciphersuite(): unknown ciphersuite '#{ciphersuite}'")
     end
 
-    # Apache-2.2 has all kinds of problems with suites > compat, and should be eliminated
-    #  by upgrades to trusty/jessie.
-    if ciphersuite != 'compat' && server == 'apache' && server_version < 24
-      fail(ArgumentError, 'ssl_ciphersuite(): apache 2.2 can only be used with "compat"')
-    end
-
-    # We can't do proper DH params for DHE suites on any of our current apache
-    # builds, actually, because they weren't built against openssl-1.0.2.
-    # Disabling for now, until we come up with a better way to configure this
-    if server == 'apache'
-      cipherlist = ciphersuites[ciphersuite].reject{|x| x =~ /^DHE-/}.join(":")
-      set_dhparam = false
-    else
-      cipherlist = ciphersuites[ciphersuite].join(":")
-      set_dhparam = true
-    end
-
+    do_hsts = false
     if args.length == 1
-      hsts_days = args.shift.to_i
+      do_hsts = args.shift
+    end
+
+    # OS / Server -dependant feature flags:
+    nginx_always_ok = true
+    dhe_ok = true
+    libssl_has_x25519 = true
+    unless function_os_version(['debian >= jessie'])
+      nginx_always_ok = false
+      libssl_has_x25519 = false
+      if server == 'apache'
+        dhe_ok = false
+      end
+    end
+
+    if !dhe_ok && ciphersuite != 'compat'
+      function_notice([
+        'ssl_ciphersuite(): OS needs upgrade to Jessie!  Downgrading SSL ciphersuite to "compat"'
+      ])
+      ciphersuite = 'compat'
+    end
+
+    if dhe_ok
+      cipherlist = ciphersuites[ciphersuite].join(":")
     else
-      hsts_days = nil
+      cipherlist = ciphersuites[ciphersuite].reject{|x| x =~ /^(DHE|EDH)-/}.join(":")
     end
 
     output = []
 
     if server == 'apache'
-      case ciphersuite
-      when 'strong' then
+      if ciphersuite == 'strong'
         output.push('SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1')
       else
         output.push('SSLProtocol all -SSLv2 -SSLv3')
       end
       output.push("SSLCipherSuite #{cipherlist}")
+      # Note: missing config to restrict ECDH curves
       output.push('SSLHonorCipherOrder On')
-      if set_dhparam
+      if dhe_ok
         output.push('SSLOpenSSLConfCmd DHParameters "/etc/ssl/dhparam.pem"')
       end
-      unless hsts_days.nil?
-        hsts_seconds = hsts_days * 86400
-        output.push("Header always set Strict-Transport-Security \"max-age=#{hsts_seconds}\"")
+      if do_hsts
+        output.push("Header always set Strict-Transport-Security \"#{hsts_val}\"")
       end
-    else
-      # nginx
-      case ciphersuite
-      when 'strong' then
+    else # nginx
+      if ciphersuite == 'strong'
         output.push('ssl_protocols TLSv1.2;')
       else
         output.push('ssl_protocols TLSv1 TLSv1.1 TLSv1.2;')
       end
       output.push("ssl_ciphers #{cipherlist};")
+      if libssl_has_x25519
+        output.push("ssl_ecdh_curve X25519:prime256v1;")
+      else
+        output.push("ssl_ecdh_curve prime256v1;")
+      end
       output.push('ssl_prefer_server_ciphers on;')
-      if set_dhparam
+      if dhe_ok
         output.push('ssl_dhparam /etc/ssl/dhparam.pem;')
       end
-      unless hsts_days.nil?
-        hsts_seconds = hsts_days * 86400
-        output.push("add_header Strict-Transport-Security \"max-age=#{hsts_seconds}\";")
+      if do_hsts
+        if nginx_always_ok
+            output.push("add_header Strict-Transport-Security \"#{hsts_val}\" always;")
+        else
+            output.push("add_header Strict-Transport-Security \"#{hsts_val}\";")
+        end
       end
     end
     return output

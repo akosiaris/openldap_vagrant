@@ -1,7 +1,19 @@
 # wmflib
 
-Custom Puppet functions that help you get things done.
+Custom Puppet functions and types that help you get things done.
 
+# Types
+
+## Wmflib::Ensure
+Accepts either 'present' or 'absent' as values.
+Should be used to validate standard ensure parameters, instead of the
+corresponding `validate_ensure` function.
+
+## Wmflib::Sourceurl
+Ensures the provided string begins with puppet:///modules/. This is useful to
+validate the format of `source` arguments to file resources.
+
+# Functions
 
 ## apply_format
 
@@ -13,6 +25,18 @@ Apply a format string to each element of an array.
 
     $languages = [ 'finnish', 'french', 'greek', 'hebrew' ]
     $packages = apply_format('texlive-lang-%s', $languages)
+
+
+## conflicts
+
+`conflicts( string|resource $resource )`
+
+Throw an error if a resource is declared.
+
+### Examples
+
+    conflicts('::redis::legacy')
+    conflicts(Class['::redis-server'])
 
 
 ## ensure_directory
@@ -66,6 +90,33 @@ Otherwise, the return value is the unmodified $ensure parameter.
     }
 
 
+## ensure_mounted
+
+`ensure_mounted( string|bool $ensure )`
+
+Takes a generic `ensure` parameter value and convert it to an
+appropriate value for use with a mount declaration.
+
+If `$ensure` is `true` or `present`, the return value is `mounted`.
+Otherwise, the return value is the unmodified `$ensure` parameter.
+
+### Examples
+
+    # Sample class which mounts or unmounts '/var/lib/nginx'
+    # based on the class's generic $ensure parameter:
+    class nginx ( $ensure = present ) {
+        package { 'nginx-full':
+            ensure => $ensure,
+        }
+        mount { '/var/lib/nginx':
+            ensure  => ensure_mounted($ensure),
+            device  => 'tmpfs',
+            fstype  => 'tmpfs',
+            options => 'defaults,noatime,uid=0,gid=0,mode=755,size=1g',
+        }
+    }
+
+
 ## ensure_service
 
 `ensure_service( string|bool $ensure )`
@@ -89,6 +140,33 @@ Otherwise, the return value is 'stopped'.
             require => Package['redis-server'],
         }
     }
+
+
+## hash_deselect_re
+
+`hash_deselect_re( string $regex, hash $input )`
+
+Does exactly the opposite of hash_select_re below: keys matching
+the regex are *excluded* from the new hash.
+
+
+## hash_select_re
+
+`hash_select_re( string $regex, hash $input )`
+
+This creates a new hash from the input hash, but only copies the
+keys which match the regex.  In other words, it does the
+equivalent of this in Ruby pseudo-code:
+
+  return input.select { |k, _v| regex.match(k) }
+
+### Example
+
+   hash_select_re('^a', {"abc" => 1, "def" => 2, "asdf" => 3})
+
+will produce:
+
+   {"abc" => 1, "asdf" => 3}
 
 
 ## ini
@@ -165,8 +243,8 @@ present, the equality operator is assumed.
 
 ### Examples
 
-    # True if Ubuntu Trusty or newer or Debian Jessie or newer
-    os_version('ubuntu >= trusty || debian >= Jessie')
+    # True if Ubuntu Trusty or newer or Debian jessie or newer
+    os_version('ubuntu >= trusty || debian >= jessie')
 
     # True if exactly Debian Jessie
     os_version('debian jessie')
@@ -268,21 +346,18 @@ Output:
 
 ## ssl_ciphersuite
 
-`ssl_ciphersuite( string $servercode, string $encryption_type, int $hsts_days )`
+`ssl_ciphersuite( string $servercode, string $encryption_type, boolean $hsts )`
 
 Outputs the ssl configuration directives for use with either Nginx
 or Apache using our selection of ciphers and SSL options.
 
 Takes three arguments:
 
-- The servercode, or which browser-version combination to
-  support. At the moment only 'apache-2.2', 'apache-2.4' and 'nginx'
-  are supported.
+- The server to configure for: 'apache' or 'nginx'
 - The compatibility mode,indicating the degree of compatibility we
   want to retain with older browsers (basically, IE6, IE7 and
   Android prior to 3.0)
-- An optional argument, that if non-nil will set HSTS to max-age of
-  N days
+- hsts - optional boolean, true emits our standard public HSTS
 
 Whenever called, this function will output a list of strings that
 can be safely used in your configuration file as the ssl
@@ -290,7 +365,7 @@ configuration part.
 
 ### Examples
 
-    ssl_ciphersuite('apache-2.4', 'compat')
+    ssl_ciphersuite('apache', 'compat', true)
     ssl_ciphersuite('nginx', 'strong')
 
 

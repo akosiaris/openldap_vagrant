@@ -12,6 +12,12 @@ class Hiera
       @httphost = config[:host] || 'https://wikitech.wikimedia.org'
       @endpoint = config[:endpoint] || '/w/api.php'
       @http = HTTPClient.new(:agent_name => 'HieraMwCache/0.1')
+
+      # Use the operating system's certificate store, not ruby-httpclient's cacert.p7s which doesn't
+      # even have the root used to sign Let's Encrypt CAs (DST Root CA X3)
+      @http.ssl_config.clear_cert_store
+      @http.ssl_config.set_default_paths
+
       @stat_ttl = config[:cache_ttl] || 60
       if defined? @http.ssl_config.ssl_version
         @http.ssl_config.ssl_version = 'TLSv1'
@@ -22,7 +28,7 @@ class Hiera
       end
     end
 
-    def read(path, expected_type, default=nil, &block)
+    def read(path, expected_type, default = nil, &block)
       read_file(path, expected_type, &block)
     rescue Hiera::MediawikiPageNotFoundError => detail
       # Any errors other than this will cause hiera to raise an error and puppet to fail.
@@ -34,19 +40,21 @@ class Hiera
       raise error
     end
 
+    # rubocop: disable Lint/UnusedMethodArgument
     def read_file(path, expected_type = Object, &block)
       if stale?(path)
         resp = get_from_mediawiki(path, true)
         data = resp["*"]
         @cache[path][:data] = block_given? ? yield(data) : data
 
-        if !@cache[path][:data].is_a?(expected_type)
-          raise TypeError, "Data retrieved from #{path} is #{data.class} not #{expected_type}"
+        if !@cache[path][:data].nil? && !@cache[path][:data].is_a?(expected_type)
+          raise TypeError, "Data retrieved from #{path} is #{@cache[path][:data].class}, not #{expected_type} or nil"
         end
       end
 
       @cache[path][:data]
     end
+    # rubocop: enable Lint/Unusedmethodargument
 
     private
 
@@ -87,11 +95,10 @@ class Hiera
       # TODO: add some locking mechanism for requests? Maybe overkill, maybe not.
       revision = get_from_mediawiki(path, false)["revid"]
 
-      return {:ts => now, :revision => revision}
+      {:ts => now, :revision => revision}
     end
 
-
-    def get_from_mediawiki(path,want_content)
+    def get_from_mediawiki(path, want_content)
       what = want_content ? 'content' : 'ids'
       query_string = "action=query&prop=revisions&format=json&rvprop=#{what}&titles=Hiera:#{path}"
       url = "#{@httphost}#{@endpoint}?#{query_string}"
@@ -108,9 +115,9 @@ class Hiera
       if pages.keys.include? "-1"
         raise Hiera::MediawikiPageNotFoundError, "Hiera:#{path}"
       end
-      #yes, it's that convoluted.
+      # yes, it's that convoluted.
       key = pages.keys[0]
-      return pages[key]["revisions"][0]
+      pages[key]["revisions"][0]
     end
   end
 end

@@ -21,35 +21,42 @@ module Puppet::Parser::Functions
   newfunction(:require_package, :arity => -2) do |args|
     Puppet::Parser::Functions.function :create_resources
     args.flatten.each do |package_name|
-      class_name = 'packages::' + package_name.tr('-', '_')
+      # Puppet class names are alphanumeric + underscore
+      # 'g++' package would yield: 'packages::g__'
+      class_name = 'packages::' + package_name.tr('-+', '_')
 
       # Create host class
-
       host = compiler.topscope.find_hostclass(class_name)
       unless host
         host = Puppet::Resource::Type.new(:hostclass, class_name)
-        known_resource_types.add_hostclass(host)
+        compiler.environment.known_resource_types.add_hostclass(host)
       end
 
       # Create class scope
-
       cls = Puppet::Parser::Resource.new(
           'class', class_name, :scope => compiler.topscope)
-      catalog.add_resource(cls) rescue nil
-      host.evaluate_code(cls) rescue nil
+      begin
+        catalog.add_resource(cls)
+      rescue
+        nil
+      end
+      begin
+        host.evaluate_code(cls)
+      rescue
+        nil
+      end
 
       # Create package resource
-
       begin
         host_scope = compiler.topscope.class_scope(host)
-        host_scope.function_create_resources(
-          ['package', { package_name => { :ensure => :present } }])
+        host_scope.call_function(:create_resources,
+                                 ['package', { package_name => { :ensure => 'present' } }])
       rescue Puppet::Resource::Catalog::DuplicateResourceError
+        nil
       end
 
       # Declare dependency
-
-      send Puppet::Parser::Functions.function(:require), [class_name]
+      call_function :require, [class_name]
     end
   end
 end
