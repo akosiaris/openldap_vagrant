@@ -1,0 +1,7 @@
+dn: uid=user4,ou=people,dc=example,dc=com
+changetype: modify
+add: pwdPolicySubentry
+pwdPolicySubentry: cn=pwdAccountLockedTime_nopwdlockout,ou=ppolicies,dc=example,dc=com
+-
+add: pwdAccountLockedTime
+pwdAccountLockedTime: 000001010000Z

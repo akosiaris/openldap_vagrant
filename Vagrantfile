@@ -14,13 +14,17 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # config.vm.box_check_update = false
 
   config.vm.provision "shell" do |s|
-      s.inline = "apt-get update && apt-get install -y puppet"
+      s.inline = "apt-get update && apt-get install -y puppet make ldapvi"
   end
 
   config.vm.provision "puppet" do |puppet|
     puppet.manifests_path = "puppet/manifests"
     puppet.module_path = "puppet/modules"
     puppet.manifest_file  = "site.pp"
+  end
+
+  config.vm.provision "shell" do |ldap|
+      ldap.inline = "cd /vagrant ; make"
   end
 
   config.vm.define "m1" do |m1|

@@ -1,0 +1,54 @@
+dn: dc=example,dc=com
+objectclass: domain
+objectclass: top
+dc: example
+
+dn: ou=people,dc=example,dc=com
+objectclass: organizationalUnit
+objectclass: top
+ou: people
+
+dn: ou=ppolicies,dc=example,dc=com
+objectclass: organizationalunit
+objectclass: top
+ou: ppolicies
+
+dn: cn=maxage,ou=ppolicies,dc=example,dc=com
+cn: maxage
+objectclass: organizationalRole
+objectclass: top
+objectclass: pwdPolicy
+pwdAttribute: userPassword
+pwdMaxAge: 1
+
+dn: cn=pwdAccountLockedTime,ou=ppolicies,dc=example,dc=com
+cn: maxage
+objectclass: organizationalRole
+objectclass: top
+objectclass: pwdPolicy
+pwdAttribute: userPassword
+pwdLockout: TRUE
+
+dn: cn=pwdAccountLockedTime_nopwdlockout,ou=ppolicies,dc=example,dc=com
+cn: maxage
+objectclass: organizationalRole
+objectclass: top
+objectclass: pwdPolicy
+pwdAttribute: userPassword
+pwdLockout: FALSE
+
+dn: cn=combined,ou=ppolicies,dc=example,dc=com
+cn: combined
+objectclass: organizationalRole
+objectclass: top
+objectclass: pwdPolicy
+pwdAttribute: userPassword
+pwdLockout: TRUE
+pwdMaxAge: 1
+
+dn: cn=admin,dc=example,dc=com
+objectclass: person
+objectclass: top
+cn: admin
+sn: admin
+userpassword: admin

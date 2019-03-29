@@ -1,0 +1,9 @@
+dn: uid=user1,ou=people,dc=example,dc=com
+changetype: modify
+add: pwdPolicySubentry
+pwdPolicySubentry: cn=maxage,ou=ppolicies,dc=example,dc=com
+
+dn: uid=user2,ou=people,dc=example,dc=com
+changetype: modify
+add: pwdPolicySubentry
+pwdPolicySubentry: cn=maxage,ou=ppolicies,dc=example,dc=com

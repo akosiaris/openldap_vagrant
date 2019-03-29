@@ -1,0 +1,49 @@
+dn: uid=user1,ou=people,dc=example,dc=com
+objectclass: person
+objectclass: inetOrgPerson
+objectclass: organizationalPerson
+objectclass: top
+uid: user1
+cn: user1 Luser
+sn: Luser
+userPassword: user1
+
+dn: uid=user2,ou=people,dc=example,dc=com
+objectclass: person
+objectclass: inetOrgPerson
+objectclass: organizationalPerson
+objectclass: top
+uid: user2
+cn: user2 Luser
+sn: Luser
+userPassword: user2
+
+dn: uid=user3,ou=people,dc=example,dc=com
+objectclass: person
+objectclass: top
+objectclass: inetOrgPerson
+objectclass: organizationalPerson
+uid: user3
+cn: user3 Luser
+sn: Luser
+userpassword: user3
+
+dn: uid=user4,ou=people,dc=example,dc=com
+objectclass: person
+objectclass: top
+objectclass: inetOrgPerson
+objectclass: organizationalPerson
+uid: user4
+cn: user4 Luser
+sn: Luser
+userpassword: user4
+
+dn: uid=user5,ou=people,dc=example,dc=com
+objectclass: person
+objectclass: top
+objectclass: inetOrgPerson
+objectclass: organizationalPerson
+uid: user5
+cn: user5 Luser
+sn: Luser
+userpassword: user5
