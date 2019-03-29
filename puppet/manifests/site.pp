@@ -46,8 +46,8 @@ file { '/etc/ssl/private':
 
 class { '::openldap':
     server_id => $server_id,
-    suffix => 'dc=corp,dc=wikimedia,dc=org',
-    datadir => '/var/lib/ldap/corp',
+    suffix => 'dc=example,dc=com',
+    datadir => '/var/lib/slapd',
     master => $master,
     mirrormode => $mirrormode,
     sync_pass => '123',
